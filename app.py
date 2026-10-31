@@ -106,6 +106,35 @@ def get_expenses():
     return expenses, expenses_list
 
 
+def calculate_budget(income, expenses_list, debt_list):
+    """Calculate budget totals without depending on a user interface."""
+    expenses = sum(amount for _, amount in expenses_list)
+    debt_payments = sum(debt["paid_this_month"] for debt in debt_list)
+    total = expenses + debt_payments
+    return {"expenses": expenses, "debt_payments": debt_payments,
+            "total_expenses": total, "remaining_balance": income - total}
+
+
+def calculate_payoff(debt):
+    """Estimate payoff using a fixed payment and monthly interest."""
+    import math
+    balance = debt["balance"]
+    rate = debt["apr"] / 1200
+    payment = debt["minimum_payment"]
+    interest = balance * rate
+    if payment <= interest:
+        return {"monthly_interest": interest, "months": None}
+    if rate == 0:
+        months = math.ceil(balance / payment)
+        total = balance
+    else:
+        months = math.ceil(-math.log1p(-interest / payment) / math.log1p(rate))
+        growth = (months - 1) * math.log1p(rate)
+        remaining = balance * math.exp(growth) - payment * math.expm1(growth) / rate
+        total = payment * (months - 1) + remaining * (1 + rate)
+    return {"monthly_interest": interest, "months": months,
+            "total_paid": total, "total_interest": total - balance}
+
 def show_payoff_estimate(debt):
     debt_name = debt["name"]
     debt_balance = debt["balance"]
@@ -143,27 +172,11 @@ def show_payoff_estimate(debt):
         print("This estimate excludes new charges and fees.\n")
         return
 
-    balance = debt_balance
-    total_paid = 0
-    months = 0
-
-    while balance > 0:
-        interest = balance * monthly_rate
-        balance = balance + interest
-
-        actual_payment = min(payment, balance)
-        balance = balance - actual_payment
-
-        total_paid = total_paid + actual_payment
-        months = months + 1
-
-    total_interest = total_paid - debt_balance
-
+    estimate = calculate_payoff(debt)
     print(f"\nEstimated payoff for {debt_name}:")
-    print(f"Months to pay off: {months}")
-    print(f"Total interest: ${total_interest:.2f}")
-    print(f"Total paid including interest: ${total_paid:.2f}\n")
-
+    print(f"Months to pay off: {estimate['months']}")
+    print(f"Total interest: ${estimate['total_interest']:.2f}")
+    print(f"Total paid including interest: ${estimate['total_paid']:.2f}\n")
 
 def get_debts():
     debt_payments = 0
