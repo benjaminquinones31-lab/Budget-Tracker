@@ -335,10 +335,13 @@ def save_budget(month, income, expenses_list, debt_list):
 
         connection.commit()
         print(f"\nBudget for {month} saved with its expenses and debts!")
+        return True
+    
 
     except sqlite3.IntegrityError:
         connection.rollback()
         print(f"\nA budget for {month} already exists. It was not replaced.")
+        return False
 
     finally:
         connection.close()
